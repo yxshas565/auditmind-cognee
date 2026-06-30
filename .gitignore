@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+build/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Cognee local data
+.cognee_system/
+.cognee_data/
+*.db
+*.sqlite3
+
+# Misc
+.pytest_cache/
+.mypy_cache/

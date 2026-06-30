@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+cognee
+anthropic
+python-dotenv
+pydantic
