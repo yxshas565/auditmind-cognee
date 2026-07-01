@@ -1,257 +1,778 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AuditMind</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuditMind — Traceable Memory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
-  :root {
-    --bg: #07070b;
-    --panel: #0e0e16;
-    --panel2: #14141f;
-    --border: #232332;
-    --accent: #8b5cf6;
-    --accent2: #06b6d4;
-    --accent-glow: #8b5cf655;
-    --text: #f1f1f7;
-    --text-dim: #75758f;
-    --ai-bubble: #15151f;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background:
-      radial-gradient(circle at 20% 20%, #1a0f2e 0%, transparent 40%),
-      radial-gradient(circle at 80% 80%, #0a1f2e 0%, transparent 40%),
-      var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    height: 100vh;
-    display: flex;
-    overflow: hidden;
-  }
-  .panel { display: flex; flex-direction: column; height: 100vh; }
-  .chat-panel {
-    width: 38%;
-    border-right: 1px solid var(--border);
-    background: linear-gradient(180deg, var(--panel) 0%, #0a0a12 100%);
-    position: relative;
-  }
-  .trace-panel { width: 62%; position: relative; }
+:root {
+  --void: #040408;
+  --void2: #080810;
+  --surface: #0c0c18;
+  --surface2: #111120;
+  --border: rgba(255,107,43,0.12);
+  --border2: rgba(255,107,43,0.22);
+  --border3: rgba(255,107,43,0.45);
+  --copper: #ff6b2b;
+  --copper-dim: #7a3215;
+  --copper-glow: rgba(255,107,43,0.25);
+  --copper-glow2: rgba(255,107,43,0.08);
+  --teal: #00d4aa;
+  --teal-dim: #004d3e;
+  --teal-glow: rgba(0,212,170,0.22);
+  --text: #f0ede8;
+  --text-mid: #8a8070;
+  --text-dim: #3d3830;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Inter', sans-serif;
+  --display: 'Space Grotesk', sans-serif;
+  --ease: cubic-bezier(.16,.84,.24,1);
+  --spring: cubic-bezier(.34,1.56,.64,1);
+}
 
-  header {
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    backdrop-filter: blur(10px);
-  }
-  .logo-dot {
-    width: 11px; height: 11px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    box-shadow: 0 0 16px var(--accent-glow);
-    animation: pulse 2.4s ease-in-out infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 10px var(--accent-glow); }
-    50% { box-shadow: 0 0 22px var(--accent-glow), 0 0 8px var(--accent2); }
-  }
-  header h1 {
-    font-size: 16px; font-weight: 700; letter-spacing: 0.3px;
-    background: linear-gradient(90deg, #fff, #c4b5fd);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  header .sub { font-size: 10.5px; color: var(--text-dim); margin-left: auto; letter-spacing: 0.5px; text-transform: uppercase; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
 
-  .messages { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
-  .messages::-webkit-scrollbar { width: 5px; }
-  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
 
-  .msg {
-    max-width: 86%;
-    padding: 12px 15px;
-    border-radius: 16px;
-    font-size: 13.5px;
-    line-height: 1.5;
-    animation: msgIn 0.35s cubic-bezier(.2,.8,.2,1);
-    position: relative;
-  }
-  @keyframes msgIn {
-    from { opacity: 0; transform: translateY(10px) scale(0.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .msg.user {
-    align-self: flex-end;
-    background: linear-gradient(135deg, var(--accent), #6d28d9);
-    color: white;
-    border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 16px -4px var(--accent-glow);
-  }
-  .msg.ai {
-    align-self: flex-start;
-    background: var(--ai-bubble);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .msg.ai:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 6px 18px -8px var(--accent-glow); }
-  .msg.ai.active { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2); }
-  .msg.system {
-    align-self: center;
-    background: transparent;
-    border: 1px dashed var(--border);
-    color: var(--text-dim);
-    font-size: 11.5px;
-    padding: 7px 14px;
-  }
-  .msg.ai .hint {
-    display: flex; align-items: center; gap: 5px;
-    margin-top: 8px; font-size: 10px; color: var(--accent2); opacity: 0.85; letter-spacing: 0.3px;
-  }
-  .hint-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent2); animation: pulse 1.6s infinite; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--copper-dim); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--copper); }
+::selection { background: var(--copper-dim); color: var(--text); }
 
-  .typing { display: flex; gap: 4px; padding: 4px 0; }
-  .typing span {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent2);
-    animation: bounce 1.2s infinite ease-in-out;
-  }
-  .typing span:nth-child(2) { animation-delay: 0.15s; }
-  .typing span:nth-child(3) { animation-delay: 0.3s; }
-  @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-6px); opacity: 1; } }
+/* ── CIRCUIT BOARD BACKGROUND ── */
+.circuit-bg {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+}
+.circuit-bg svg { width: 100%; height: 100%; opacity: 0.045; }
 
-  .memory-row { display: flex; gap: 8px; padding: 0 18px 14px; }
-  .input-row { padding: 16px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-  input[type=text] {
-    flex: 1;
-    background: var(--panel2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 12px 15px;
-    border-radius: 12px;
-    font-size: 13.5px;
-    outline: none;
-    transition: all 0.2s;
-  }
-  input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-  button {
-    background: linear-gradient(135deg, var(--accent), #6d28d9);
-    color: white; border: none; padding: 0 20px; border-radius: 12px;
-    cursor: pointer; font-size: 13.5px; font-weight: 600;
-    transition: all 0.2s;
-  }
-  button:hover { filter: brightness(1.15); transform: translateY(-1px); }
-  button:active { transform: translateY(0); }
-  button:disabled { opacity: 0.35; cursor: default; transform: none; }
-  .memory-row button { background: var(--panel2); border: 1px solid var(--border); color: var(--text-dim); font-size: 11.5px; padding: 0 14px; }
-  .memory-row button:hover { border-color: var(--accent2); color: var(--text); filter: none; }
-  .memory-row input { font-size: 12px; padding: 9px 12px; }
+/* ── AMBIENT GLOW ORBS ── */
+.orb {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+  filter: blur(90px); mix-blend-mode: screen;
+}
+.orb-1 {
+  width: 600px; height: 600px; top: -200px; left: -150px;
+  background: radial-gradient(circle, rgba(255,107,43,0.18) 0%, transparent 70%);
+  animation: orbDrift1 28s ease-in-out infinite;
+}
+.orb-2 {
+  width: 500px; height: 500px; bottom: -180px; right: -120px;
+  background: radial-gradient(circle, rgba(0,212,170,0.14) 0%, transparent 70%);
+  animation: orbDrift2 22s ease-in-out infinite;
+}
+@keyframes orbDrift1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+@keyframes orbDrift2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-35px,-25px)} }
 
-  .trace-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; }
-  .trace-header h2 { font-size: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; }
-  .trace-stats { font-size: 11.5px; color: var(--text-dim); margin-top: 5px; }
-  .trace-stats b { color: var(--accent2); font-weight: 700; }
-  .legend { display: flex; gap: 14px; font-size: 10px; color: var(--text-dim); }
-  .legend span { display: flex; align-items: center; gap: 5px; }
-  .legend .sw { width: 8px; height: 8px; border-radius: 50%; }
+/* ── TOP NAV ── */
+.topnav {
+  height: 52px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 24px; gap: 16px;
+  background: rgba(4,4,8,0.85); backdrop-filter: blur(20px);
+  position: relative; z-index: 10; flex-shrink: 0;
+}
+.topnav::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--copper) 30%, var(--teal) 70%, transparent);
+  animation: scanLine 6s linear infinite; opacity: 0.6;
+}
+@keyframes scanLine {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+.logo {
+  display: flex; align-items: center; gap: 10px; text-decoration: none;
+}
+.logo-icon {
+  width: 28px; height: 28px; position: relative; flex-shrink: 0;
+}
+.logo-icon .hex {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--copper), #c44010);
+  clip-path: polygon(50% 0%,93.3% 25%,93.3% 75%,50% 100%,6.7% 75%,6.7% 25%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 20px var(--copper-glow);
+  animation: hexPulse 3s ease-in-out infinite;
+}
+@keyframes hexPulse {
+  0%,100% { box-shadow: 0 0 14px var(--copper-glow); }
+  50% { box-shadow: 0 0 28px var(--copper-glow), 0 0 8px var(--copper); }
+}
+.logo-icon .hex svg { width: 12px; height: 12px; }
+.logo-icon .ping {
+  position: absolute; top: -2px; right: -2px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--teal);
+  box-shadow: 0 0 10px var(--teal);
+  animation: ping 2s ease-in-out infinite;
+}
+@keyframes ping { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+.logo-text {
+  font-family: var(--display); font-size: 16px; font-weight: 800;
+  letter-spacing: -0.4px; color: var(--text);
+}
+.logo-text span { color: var(--copper); }
+.logo-tag {
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+  color: var(--copper); letter-spacing: 1.5px; text-transform: uppercase;
+  border: 1px solid var(--border2); padding: 2px 8px; border-radius: 3px;
+  background: var(--copper-glow2);
+}
+.nav-spacer { flex: 1; }
+.nav-stat {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-mid);
+  border: 1px solid var(--border); padding: 5px 10px; border-radius: 4px;
+  background: rgba(255,107,43,0.03);
+}
+.nav-stat .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: ping 2s infinite; }
+.nav-stat b { color: var(--teal); font-weight: 600; }
 
-  #graph-container { width: 100%; height: calc(100% - 66px); position: relative; }
-  .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-dim); }
-  .empty-state .icon { font-size: 38px; margin-bottom: 12px; opacity: 0.3; animation: float 3s ease-in-out infinite; }
-  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-  .empty-state .label { font-size: 13px; }
+/* ── LAYOUT ── */
+.workspace {
+  display: flex; flex: 1; min-height: 0; position: relative; z-index: 1;
+}
 
-  .node-label { fill: var(--text); font-size: 10.5px; font-weight: 600; pointer-events: none; text-anchor: middle; }
-  .node-label.dim { fill: var(--text-dim); font-size: 8.5px; font-weight: 400; }
-  .link { stroke: #2d2d42; stroke-width: 1.6; }
-  .link-label { fill: #4a4a66; font-size: 8px; pointer-events: none; }
+/* ── PANELS ── */
+.panel {
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+  transition: width 0.4s var(--ease), min-width 0.4s var(--ease);
+}
+.panel-border-right { border-right: 1px solid var(--border); }
 
-  .tooltip {
-    position: absolute; background: var(--panel2); border: 1px solid var(--accent);
-    padding: 9px 12px; border-radius: 8px; font-size: 11.5px; pointer-events: none;
-    opacity: 0; transition: opacity 0.15s; z-index: 10; max-width: 220px;
-    box-shadow: 0 8px 24px -8px black;
-  }
-  .tooltip b { color: var(--accent2); }
+.left-panel {
+  width: 340px; min-width: 340px;
+  background: rgba(8,8,16,0.7); backdrop-filter: blur(16px);
+}
+.left-panel.collapsed { width: 52px; min-width: 52px; }
 
-  .zoom-controls { position: absolute; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 6px; }
-  .zoom-controls button { width: 32px; height: 32px; padding: 0; border-radius: 8px; font-size: 16px; background: var(--panel2); border: 1px solid var(--border); color: var(--text-dim); }
-  .zoom-controls button:hover { color: var(--text); border-color: var(--accent); filter: none; }
+.mid-panel {
+
+  width: 300px;
+  min-width: 300px;
+
+  background: rgba(6,6,12,0.6);
+  backdrop-filter: blur(14px);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+}
+.mid-panel.collapsed { width: 52px; min-width: 52px; }
+
+.right-panel { flex: 1; min-width: 0; background: rgba(4,4,8,0.5); }
+
+/* collapsed rail */
+.panel-rail {
+  display: none; flex-direction: column; align-items: center;
+  padding: 16px 0; gap: 12px; width: 52px; height: 100%;
+}
+.panel.collapsed .panel-rail { display: flex; }
+.panel.collapsed .panel-content { display: none; }
+
+.rail-icon {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); display: flex; align-items: center; justify-content: center;
+  color: var(--text-mid); cursor: pointer; transition: all .2s; font-size: 13px;
+}
+.rail-icon:hover { border-color: var(--copper); color: var(--copper); box-shadow: 0 0 12px var(--copper-glow); }
+.rail-label {
+  writing-mode: vertical-rl; font-family: var(--mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.panel-content {
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  min-height: 0;
+
+}
+
+/* ── PANEL HEADERS ── */
+.panel-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(255,107,43,0.04) 0%, transparent 100%);
+}
+.panel-header-title {
+  font-family: var(--display); font-size: 12px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text);
+}
+.panel-header-sub { font-family: var(--mono); font-size: 9px; color: var(--text-mid); margin-top: 1px; }
+.header-badge {
+  font-family: var(--mono); font-size: 9px; color: var(--copper);
+  background: var(--copper-glow2); border: 1px solid var(--border2);
+  padding: 1px 7px; border-radius: 3px; margin-left: auto;
+}
+.collapse-btn {
+  width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-mid); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; transition: all .2s; flex-shrink: 0; padding: 0;
+  font-family: inherit;
+}
+.collapse-btn:hover { border-color: var(--copper); color: var(--copper); background: var(--copper-glow2); }
+
+/* ── CHAT AREA ── */
+.messages {
+  flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.empty-chat {
+  margin: auto; text-align: center; padding: 24px 16px;
+}
+.empty-chat .circuit-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px; position: relative;
+}
+.empty-chat .circuit-icon svg { width: 56px; height: 56px; opacity: 0.35; }
+.empty-chat h3 {
+  font-family: var(--display); font-size: 14px; font-weight: 700;
+  color: var(--text); margin-bottom: 6px;
+}
+.empty-chat p { font-size: 11.5px; color: var(--text-mid); line-height: 1.6; max-width: 220px; margin: 0 auto; }
+
+.msg {
+  max-width: 94%; padding: 11px 14px 12px;
+  border-radius: 12px; font-size: 12.8px; line-height: 1.55;
+  animation: msgIn .38s var(--spring);
+  position: relative;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.msg.user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--copper), #b84a10);
+  color: white; border-bottom-right-radius: 3px;
+  box-shadow: 0 6px 20px -8px var(--copper-glow);
+}
+.msg.ai {
+  align-self: flex-start;
+  background: var(--surface); border: 1px solid var(--border);
+  border-bottom-left-radius: 3px; cursor: pointer;
+  transition: all .22s var(--ease);
+}
+.msg.ai:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 8px 24px -12px var(--copper-glow); }
+.msg.ai.active { border-color: var(--teal); box-shadow: 0 0 0 1px rgba(0,212,170,0.2); }
+.msg.system {
+  align-self: center; background: transparent;
+  border: 1px dashed var(--border2); color: var(--text-mid);
+  font-family: var(--mono); font-size: 10.5px; padding: 5px 12px; border-radius: 20px;
+}
+.msg-trace-hint {
+  display: flex; align-items: center; gap: 5px; margin-top: 8px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--teal);
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.trace-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: ping 1.8s infinite; }
+.typing { display: flex; gap: 4px; padding: 3px 0; }
+.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--copper); animation: typeBounce 1.2s infinite ease-in-out; }
+.typing span:nth-child(2) { animation-delay: .15s; }
+.typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes typeBounce { 0%,80%,100%{transform:translateY(0);opacity:.3} 40%{transform:translateY(-6px);opacity:1} }
+
+/* ── INPUT AREA ── */
+.input-area {
+  border-top: 1px solid var(--border); padding: 14px 16px; flex-shrink: 0;
+  background: linear-gradient(0deg, rgba(255,107,43,0.03) 0%, transparent 100%);
+}
+.input-row { display: flex; gap: 8px; align-items: center; }
+.input-box {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 13px; border-radius: 8px;
+  font-family: var(--sans); font-size: 12.5px; outline: none;
+  transition: all .2s;
+}
+.input-box::placeholder { color: var(--text-dim); }
+.input-box:focus { border-color: var(--border2); box-shadow: 0 0 0 3px var(--copper-glow2); background: var(--surface); }
+.btn {
+  background: var(--copper); color: white; border: none; padding: 0 16px;
+  height: 38px; border-radius: 8px; cursor: pointer; font-family: var(--display);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  transition: all .2s var(--ease);
+  box-shadow: 0 4px 14px -6px var(--copper-glow);
+}
+.btn:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 8px 20px -8px var(--copper-glow); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: .35; cursor: default; transform: none; box-shadow: none; }
+.btn.secondary {
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text-mid); box-shadow: none;
+}
+.btn.secondary:hover { border-color: var(--copper); color: var(--copper); background: var(--copper-glow2); filter: none; }
+.btn.teal {
+  background: var(--teal-dim); border: 1px solid rgba(0,212,170,0.3);
+  color: var(--teal); box-shadow: none;
+}
+.btn.teal:hover { background: var(--teal); color: #001a15; filter: none; box-shadow: 0 0 16px var(--teal-glow); }
+.mem-row { display: flex; gap: 7px; margin-bottom: 8px; }
+.mem-row .input-box { font-size: 11.5px; padding: 8px 11px; }
+
+/* ── MEMORY PANEL (mid) ── */
+.section-label {
+  padding: 12px 18px 8px; font-family: var(--mono);
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-mid);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.section-label .count {
+  font-size: 10px; color: var(--copper); background: var(--copper-glow2);
+  border: 1px solid var(--border2); padding: 1px 7px; border-radius: 3px;
+}
+/* .mem-list { flex: 1; overflow-y: auto; padding: 0 14px 14px; display: flex; flex-direction: column; gap: 6px; } */
+.mem-list {
+
+  flex: 1;
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding: 0 14px 14px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--copper-dim) transparent;
+
+}
+
+.mem-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mem-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mem-list::-webkit-scrollbar-thumb {
+  background: var(--copper-dim);
+  border-radius: 10px;
+}
+
+.mem-list::-webkit-scrollbar-thumb:hover {
+  background: var(--copper);
+}
+.mem-empty { font-size: 11px; color: var(--text-dim); padding: 8px 4px; line-height: 1.6; font-style: italic; }
+.mem-card {
+  flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 11px; display: flex; gap: 8px; align-items: flex-start;
+  transition: all .2s var(--ease); position: relative; overflow: hidden;
+}
+.mem-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--copper); opacity: 0;
+  transition: opacity .2s;
+}
+.mem-card:hover { border-color: var(--border2); transform: translateX(2px); }
+.mem-card:hover::before { opacity: 1; }
+.mem-card.forgotten { opacity: .28; }
+.mem-card.forgotten .mem-text { text-decoration: line-through; }
+.mem-text { flex: 1; font-size: 11.2px; color: var(--text-mid); line-height: 1.45; word-break: break-word; }
+.forget-btn {
+  background: transparent; border: 1px solid rgba(255,100,100,0.25);
+  color: rgba(255,100,100,0.6); font-family: var(--mono); font-size: 9px;
+  padding: 3px 8px; border-radius: 4px; cursor: pointer; flex-shrink: 0;
+  transition: all .2s; line-height: 1.4; height: auto;
+}
+.forget-btn:hover { background: rgba(255,100,100,0.12); border-color: rgba(255,100,100,0.6); color: #ff6464; }
+.forget-btn:disabled { opacity: .25; cursor: default; }
+
+.divider { height: 1px; background: var(--border); margin: 4px 14px; flex-shrink: 0; }
+
+.improve-section { padding: 10px 14px; flex-shrink: 0; }
+.improve-btn { width: 100%; height: 34px; font-size: 11px; letter-spacing: 0.3px; }
+.improve-output {
+  font-family: var(--mono); font-size: 10px; color: var(--teal);
+  padding: 6px 0 0; min-height: 16px; letter-spacing: 0.3px;
+}
+
+/* ── TRACE PANEL ── */
+.trace-topbar {
+  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  flex-shrink: 0; background: linear-gradient(180deg, rgba(255,107,43,0.03) 0%, transparent 100%);
+}
+.trace-title { font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.trace-subtitle { font-family: var(--mono); font-size: 10.5px; color: var(--text-mid); margin-top: 4px; }
+.trace-subtitle b { color: var(--teal); }
+.legend { display: flex; gap: 16px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9.5px; color: var(--text-mid); }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+#graph-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.graph-grid {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.2;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 65% 65% at 50% 50%, black 20%, transparent 75%);
+}
+.graph-empty {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  text-align: center; pointer-events: none; z-index: 2;
+}
+.graph-empty .orbit {
+  width: 80px; height: 80px; margin: 0 auto 18px; position: relative;
+}
+.graph-empty .orbit-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid var(--border2);
+}
+.graph-empty .orbit-ring.r1 { animation: orbit 10s linear infinite; }
+.graph-empty .orbit-ring.r2 { inset: 16px; border-color: var(--border); animation: orbit 7s linear infinite reverse; }
+.graph-empty .orbit-node {
+  position: absolute; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--copper); box-shadow: 0 0 10px var(--copper);
+  top: -3.5px; left: 50%; margin-left: -3.5px;
+}
+.graph-empty .orbit-core {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--copper); box-shadow: 0 0 18px var(--copper-glow);
+  animation: ping 2.4s ease-in-out infinite;
+}
+@keyframes orbit { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+.graph-empty .empty-label { font-family: var(--display); font-size: 14px; font-weight: 700; color: var(--text); }
+.graph-empty .empty-sub { font-size: 11px; color: var(--text-mid); margin-top: 5px; max-width: 240px; }
+
+.graph-zoom {
+  position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 6px; z-index: 3;
+}
+.zoom-btn {
+  width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border2);
+  background: rgba(8,8,16,0.8); backdrop-filter: blur(8px); color: var(--text-mid);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all .2s; font-family: inherit;
+}
+.zoom-btn:hover { border-color: var(--copper); color: var(--copper); box-shadow: 0 0 12px var(--copper-glow); }
+
+/* ── TOOLTIP ── */
+.tooltip {
+  position: fixed; background: var(--surface); border: 1px solid var(--copper);
+  padding: 8px 12px; border-radius: 7px; font-size: 11px; pointer-events: none;
+  opacity: 0; transition: opacity .15s; z-index: 200; max-width: 200px;
+  box-shadow: 0 12px 32px -8px black, 0 0 0 1px var(--border);
+}
+.tooltip-type { font-family: var(--mono); font-size: 9px; color: var(--copper); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+.tooltip-name { color: var(--text); font-weight: 500; }
+
+/* ── ANSWER PANEL (bottom of right) ── */
+.answer-bar {
+  border-top: 1px solid var(--border); padding: 14px 24px; flex-shrink: 0;
+  background: rgba(8,8,16,0.85); backdrop-filter: blur(10px);
+  max-height: 120px; overflow-y: auto; display: none;
+}
+.answer-bar.visible { display: block; }
+.answer-label { font-family: var(--mono); font-size: 9px; color: var(--copper); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+.answer-text { font-size: 12.5px; color: var(--text); line-height: 1.55; }
+
+@media (max-width: 1100px) {
+  .left-panel { width: 300px; min-width: 300px; }
+  .mid-panel { width: 260px; min-width: 260px; }
+}
 </style>
 </head>
 <body>
 
-<div class="panel chat-panel">
-  <header>
-    <div class="logo-dot"></div>
-    <h1>AuditMind</h1>
-    <span class="sub">traceable memory</span>
-  </header>
-  <div class="messages" id="messages"></div>
-  <div class="memory-row">
-    <input type="text" id="memInput" placeholder="Add a memory (fact)..." onkeydown="if(event.key==='Enter')addMemory()" />
-    <button onclick="addMemory()">+ Remember</button>
+<div class="circuit-bg">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="#ff6b2b" stroke-width="1" fill="none">
+      <polyline points="0,200 120,200 120,80 280,80 280,160 420,160"/>
+      <polyline points="420,160 420,320 560,320 560,200 700,200"/>
+      <polyline points="700,200 700,120 860,120 860,240 1000,240"/>
+      <polyline points="1000,240 1000,160 1140,160 1140,280 1300,280 1440,280"/>
+      <polyline points="0,500 100,500 100,420 260,420 260,540 400,540"/>
+      <polyline points="400,540 400,440 560,440 560,600 720,600"/>
+      <polyline points="720,600 720,500 880,500 880,640 1040,640"/>
+      <polyline points="1040,640 1040,560 1200,560 1200,680 1440,680"/>
+      <polyline points="200,0 200,100 340,100 340,0"/>
+      <polyline points="600,0 600,140 740,140 740,0"/>
+      <polyline points="1000,0 1000,100 1140,100"/>
+      <polyline points="0,700 160,700 160,800 320,800 320,900"/>
+      <polyline points="500,900 500,780 660,780 660,860 820,860 820,900"/>
+      <polyline points="1100,900 1100,760 1260,760 1260,900"/>
+      <circle cx="120" cy="200" r="3" fill="#ff6b2b"/>
+      <circle cx="280" cy="80" r="3" fill="#ff6b2b"/>
+      <circle cx="420" cy="160" r="3" fill="#ff6b2b"/>
+      <circle cx="560" cy="320" r="3" fill="#ff6b2b"/>
+      <circle cx="700" cy="200" r="3" fill="#ff6b2b"/>
+      <circle cx="860" cy="120" r="3" fill="#ff6b2b"/>
+      <circle cx="1000" cy="240" r="3" fill="#ff6b2b"/>
+      <circle cx="1140" cy="160" r="3" fill="#ff6b2b"/>
+      <circle cx="100" cy="500" r="3" fill="#ff6b2b"/>
+      <circle cx="260" cy="420" r="3" fill="#ff6b2b"/>
+      <circle cx="400" cy="540" r="3" fill="#ff6b2b"/>
+      <circle cx="560" cy="440" r="3" fill="#ff6b2b"/>
+      <circle cx="720" cy="600" r="3" fill="#ff6b2b"/>
+      <circle cx="880" cy="500" r="3" fill="#ff6b2b"/>
+      <circle cx="1040" cy="640" r="3" fill="#ff6b2b"/>
+      <circle cx="200" cy="100" r="3" fill="#00d4aa"/>
+      <circle cx="600" cy="140" r="3" fill="#00d4aa"/>
+      <circle cx="160" cy="700" r="3" fill="#00d4aa"/>
+      <circle cx="660" cy="780" r="3" fill="#00d4aa"/>
+    </g>
+  </svg>
+</div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <div class="logo">
+    <div class="logo-icon">
+      <div class="hex">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M4.9 19.1l2.1-2.1M16.9 7.1l2.1-2.1"/>
+        </svg>
+      </div>
+      <div class="ping"></div>
+    </div>
+    <span class="logo-text">Audit<span>Mind</span></span>
   </div>
-  <div class="input-row">
-    <input type="text" id="chatInput" placeholder="Ask something..." onkeydown="if(event.key==='Enter')sendChat()" />
-    <button onclick="sendChat()" id="sendBtn">Ask</button>
+  <span class="logo-tag">TRACEABLE MEMORY</span>
+  <div class="nav-spacer"></div>
+  <div class="nav-stat">
+    <span class="dot"></span>
+    <span>graph nodes: <b id="navNodeCount">—</b></span>
   </div>
+  <div class="nav-stat" style="margin-left:8px;">
+    <span>memories: <b id="navMemCount" style="color:var(--copper)">0</b></span>
+  </div>
+</nav>
+
+
+<div class="workspace">
+
+  <!-- LEFT: CHAT -->
+  <div class="panel panel-border-right left-panel" id="leftPanel">
+    <div class="panel-content">
+      <div class="panel-header">
+        <div>
+          <div class="panel-header-title">Chat</div>
+          <div class="panel-header-sub">ask · answer · trace</div>
+        </div>
+        <button class="collapse-btn" onclick="toggleLeft()" title="Collapse">‹</button>
+      </div>
+      <div class="messages" id="messages">
+        <div class="empty-chat" id="emptyChat">
+          <div class="circuit-icon">
+            <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="28" cy="28" r="26" stroke="#ff6b2b" stroke-width="1"/>
+              <circle cx="28" cy="28" r="16" stroke="#ff6b2b" stroke-width="0.8" stroke-dasharray="4 3"/>
+              <circle cx="28" cy="28" r="5" fill="#ff6b2b" opacity="0.8"/>
+              <line x1="28" y1="2" x2="28" y2="12" stroke="#ff6b2b" stroke-width="1"/>
+              <line x1="28" y1="44" x2="28" y2="54" stroke="#ff6b2b" stroke-width="1"/>
+              <line x1="2" y1="28" x2="12" y2="28" stroke="#ff6b2b" stroke-width="1"/>
+              <line x1="44" y1="28" x2="54" y2="28" stroke="#ff6b2b" stroke-width="1"/>
+              <circle cx="28" cy="5" r="2" fill="#00d4aa"/>
+              <circle cx="28" cy="51" r="2" fill="#00d4aa"/>
+              <circle cx="5" cy="28" r="2" fill="#00d4aa"/>
+              <circle cx="51" cy="28" r="2" fill="#00d4aa"/>
+            </svg>
+          </div>
+          <h3>Start a conversation</h3>
+          <p>Store memories below, then ask anything — every answer renders a live provenance trace.</p>
+        </div>
+      </div>
+      <div class="input-area">
+        <div class="mem-row">
+          <input class="input-box" type="text" id="memInput" placeholder="Add a memory (any fact)…" onkeydown="if(event.key==='Enter')addMemory()"/>
+          <button class="btn secondary" onclick="addMemory()">+ Store</button>
+        </div>
+        <div class="input-row">
+          <input class="input-box" type="text" id="chatInput" placeholder="Ask something…" onkeydown="if(event.key==='Enter')sendChat()"/>
+          <button class="btn" onclick="sendChat()" id="sendBtn">Ask →</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-rail">
+      <div class="rail-icon" onclick="toggleLeft()">›</div>
+      <div class="rail-label">Chat</div>
+    </div>
+  </div>
+
+  <!-- MID: MEMORY MANAGER -->
+  <div class="panel panel-border-right mid-panel" id="midPanel">
+    <div class="panel-content">
+      <div class="panel-header">
+        <div>
+          <div class="panel-header-title">Memory</div>
+          <div class="panel-header-sub">stored · forgettable</div>
+        </div>
+        <button class="collapse-btn" onclick="toggleMid()" title="Collapse">‹</button>
+      </div>
+      <div class="section-label">
+        Stored facts
+        <span class="count" id="memCountBadge">0</span>
+      </div>
+      <div class="mem-list" id="memList">
+        <div class="mem-empty">No memories yet. Add facts from the chat panel.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="improve-section">
+        <button class="btn teal improve-btn" id="improveBtn" onclick="runImprove()">⟳ run improve()</button>
+        <div class="improve-output" id="improveOutput"></div>
+      </div>
+    </div>
+    <div class="panel-rail">
+      <div class="rail-icon" onclick="toggleMid()">›</div>
+      <div class="rail-label">Memory</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: TRACE -->
+  <div class="panel right-panel" style="display:flex;flex-direction:column;">
+    <div class="trace-topbar">
+      <div>
+        <div class="trace-title">Memory Trace</div>
+        <div class="trace-subtitle" id="traceSubtitle">Ask a question to render the live provenance graph</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#ff6b2b;box-shadow:0 0 6px #ff6b2b"></div>Entity</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00d4aa;box-shadow:0 0 6px #00d4aa"></div>Type</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4ade80;box-shadow:0 0 6px #4ade80"></div>Document</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;box-shadow:0 0 6px #fbbf24"></div>Chunk</div>
+      </div>
+    </div>
+    <div id="graph-wrap" style="flex:1;min-height:0;position:relative;overflow:hidden;">
+      <div class="graph-grid"></div>
+      <div class="graph-empty" id="graphEmpty">
+        <div class="orbit">
+          <div class="orbit-ring r1"><div class="orbit-node"></div></div>
+          <div class="orbit-ring r2"></div>
+          <div class="orbit-core"></div>
+        </div>
+        <div class="empty-label">No trace yet</div>
+        <div class="empty-sub">Every answer has a traceable path through memory — ask to see it</div>
+      </div>
+      <div class="graph-zoom">
+        <button class="zoom-btn" onclick="zoomBy(1.3)">+</button>
+        <button class="zoom-btn" onclick="zoomBy(0.7)">−</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset">⊙</button>
+      </div>
+    </div>
+    <div class="answer-bar" id="answerBar">
+      <div class="answer-label">Current answer</div>
+      <div class="answer-text" id="answerText"></div>
+    </div>
+  </div>
+
 </div>
 
-<div class="panel trace-panel">
-  <div class="trace-header">
-    <div>
-      <h2>Memory Trace</h2>
-      <div class="trace-stats" id="traceStats">Ask a question to see which memories drove the answer</div>
-    </div>
-    <div class="legend">
-      <span><i class="sw" style="background:#8b5cf6"></i>Entity</span>
-      <span><i class="sw" style="background:#06b6d4"></i>Type</span>
-      <span><i class="sw" style="background:#4ade80"></i>Document</span>
-    </div>
-  </div>
-  <div id="graph-container">
-    <div class="empty-state" id="emptyState">
-      <div class="icon">◎</div>
-      <div class="label">No trace yet — ask a question</div>
-    </div>
-  </div>
-  <div class="zoom-controls">
-    <button onclick="zoomBy(1.3)">+</button>
-    <button onclick="zoomBy(0.7)">−</button>
-    <button onclick="resetZoom()">⊙</button>
-  </div>
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-type" id="tooltipType"></div>
+  <div class="tooltip-name" id="tooltipName"></div>
 </div>
-
-<div class="tooltip" id="tooltip"></div>
 
 <script>
 const API = "http://127.0.0.1:8000";
-let zoomBehavior, svgRoot;
+let zoomBeh, svgRoot;
 
+function toggleLeft() {
+  document.getElementById('leftPanel').classList.toggle('collapsed');
+  setTimeout(() => {
+    if (!svgRoot || !zoomBeh) return;
+    const wrap = document.getElementById('graph-wrap');
+    const r = wrap.getBoundingClientRect();
+    svgRoot.attr("width", r.width).attr("height", r.height);
+    resetZoom();
+  }, 420);
+}
+function toggleMid() {
+  document.getElementById("midPanel").classList.toggle("collapsed");
+  setTimeout(() => {
+    if (!svgRoot || !zoomBeh) return;
+    const wrap = document.getElementById('graph-wrap');
+    const r = wrap.getBoundingClientRect();
+    svgRoot.attr("width", r.width).attr("height", r.height);
+    resetZoom();
+  }, 420);
+}
+
+// ── utils ──
 function addMsg(text, who) {
+  document.getElementById('emptyChat')?.remove();
   const m = document.createElement('div');
   m.className = 'msg ' + who;
   m.textContent = text;
   document.getElementById('messages').appendChild(m);
-  document.getElementById('messages').scrollTop = 1e9;
+  document.getElementById('messages').scrollTop = 9999;
   return m;
 }
-
 function addTyping() {
   const m = document.createElement('div');
-  m.className = 'msg ai';
-  m.id = 'typingMsg';
+  m.id = 'typingMsg'; m.className = 'msg ai';
   m.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
   document.getElementById('messages').appendChild(m);
-  document.getElementById('messages').scrollTop = 1e9;
+  document.getElementById('messages').scrollTop = 9999;
 }
-function removeTyping() {
-  const el = document.getElementById('typingMsg');
-  if (el) el.remove();
-}
+function removeTyping() { document.getElementById('typingMsg')?.remove(); }
 
+// ── memory ──
 async function addMemory() {
   const input = document.getElementById('memInput');
   const text = input.value.trim();
@@ -259,145 +780,415 @@ async function addMemory() {
   input.value = '';
   try {
     const res = await fetch(API + '/memory', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({text})
     });
-    if (!res.ok) throw new Error();
-    addMsg('🧠 ' + text, 'system');
-  } catch (e) {
-    addMsg('⚠️ Failed to store memory.', 'system');
+    const data = await res.json();
+    if (data.status !== 'stored') throw new Error(data.detail || 'failed');
+    addMsg('⬡ stored — "' + text.slice(0,60) + (text.length>60?'…':'') + '"', 'system');
+    loadMemories();
+  } catch(e) { addMsg('⚠ store failed: ' + e.message, 'system'); }
+}
+
+async function loadMemories() {
+  try {
+    const res = await fetch(API + '/memories');
+    const data = await res.json();
+    const list = document.getElementById('memList');
+    list.innerHTML = '';
+    const count = data.memories.length;
+    document.getElementById('memCountBadge').textContent = count;
+    document.getElementById('navMemCount').textContent = count;
+    if (!count) {
+      list.innerHTML = '<div class="mem-empty">No memories yet. Add facts from the chat panel.</div>';
+      return;
+    }
+    data.memories.slice().reverse().forEach(m => {
+      const card = document.createElement('div');
+      card.className = 'mem-card' + (m.forgotten ? ' forgotten' : '');
+      const txt = document.createElement('div');
+      txt.className = 'mem-text'; txt.textContent = m.text;
+      const btn = document.createElement('button');
+      btn.className = 'forget-btn';
+      btn.textContent = m.forgotten ? 'forgotten' : 'forget';
+      btn.disabled = m.forgotten;
+      btn.onclick = () => forgetMemory(m.memory_id, btn, card);
+      card.appendChild(txt); card.appendChild(btn);
+      list.appendChild(card);
+    });
+  } catch(e) { console.error('loadMemories', e); }
+}
+
+async function forgetMemory(memId, btn, card) {
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch(API + '/forget', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({memory_id: memId})
+    });
+    const data = await res.json();
+    if (data.status === 'forgotten' || data.status === 'already_forgotten') {
+      card.style.transition = 'all 0.3s ease';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(-10px)';
+      setTimeout(() => card.remove(), 300);
+      addMsg('⬡ memory forgotten — future traces will not reference it', 'system');
+    } else {
+      btn.textContent = 'forget';
+      btn.disabled = false;
+      addMsg('⚠ forget failed: ' + (data.detail || data.status), 'system');
+    }
+    loadMemories();
+  } catch(e) {
+    btn.textContent = 'forget'; btn.disabled = false;
+    addMsg('⚠ forget failed', 'system');
   }
 }
 
+// ── chat ──
 async function sendChat() {
   const input = document.getElementById('chatInput');
   const msg = input.value.trim();
   if (!msg) return;
   input.value = '';
   addMsg(msg, 'user');
-  const btn = document.getElementById('sendBtn');
-  btn.disabled = true;
+  document.getElementById('sendBtn').disabled = true;
   addTyping();
-
   try {
     const res = await fetch(API + '/chat', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({message: msg})
     });
     const data = await res.json();
     removeTyping();
     const aiMsg = addMsg(data.answer, 'ai');
     const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.innerHTML = '<span class="hint-dot"></span> view memory trace';
+    hint.className = 'msg-trace-hint';
+    hint.innerHTML = '<span class="trace-dot"></span> view provenance trace';
     aiMsg.appendChild(hint);
     aiMsg.onclick = () => {
       document.querySelectorAll('.msg.ai').forEach(m => m.classList.remove('active'));
       aiMsg.classList.add('active');
-      loadTrace(data.response_id);
+      loadTrace(data.response_id, data.answer);
     };
     aiMsg.click();
-  } catch (e) {
+  } catch(e) {
     removeTyping();
-    addMsg('⚠️ Something went wrong.', 'ai');
+    addMsg('⚠ recall failed — is the backend running?', 'ai');
   } finally {
-    btn.disabled = false;
+    document.getElementById('sendBtn').disabled = false;
   }
 }
 
-async function loadTrace(responseId) {
-  const res = await fetch(API + '/trace/' + responseId);
-  const data = await res.json();
-  document.getElementById('emptyState').style.display = 'none';
-  document.getElementById('traceStats').innerHTML =
-    `Showing <b>${data.filtered_node_count}</b> of <b>${data.full_graph_node_count}</b> memory nodes for this answer`;
-  renderGraph(data.nodes, data.edges);
+// ── trace ──
+async function loadTrace(responseId, answer) {
+  try {
+    const res = await fetch(API + '/trace/' + responseId);
+    const data = await res.json();
+    document.getElementById('graphEmpty').style.display = 'none';
+    document.getElementById('traceSubtitle').innerHTML =
+      `Showing <b>${data.filtered_node_count}</b> of <b>${data.full_graph_node_count}</b> memory nodes — filtered to this answer`;
+    document.getElementById('navNodeCount').textContent = data.full_graph_node_count;
+    const bar = document.getElementById('answerBar');
+    bar.classList.add('visible');
+    document.getElementById('answerText').textContent = answer || data.answer;
+    renderGraph(data.nodes, data.edges);
+  } catch(e) { console.error('loadTrace', e); }
 }
 
-function zoomBy(factor) {
-  if (svgRoot && zoomBehavior) svgRoot.transition().duration(250).call(zoomBehavior.scaleBy, factor);
+// ── improve ──
+async function runImprove() {
+  const btn = document.getElementById('improveBtn');
+  const out = document.getElementById('improveOutput');
+  btn.disabled = true; out.textContent = 'running…';
+  try {
+    const res = await fetch(API + '/improve', {method:'POST'});
+    const data = await res.json();
+    if (data.status === 'improved') {
+      const delta = data.node_count_after - data.node_count_before;
+      out.textContent = `before: ${data.node_count_before} nodes → after: ${data.node_count_after} (${delta>=0?'+':''}${delta})`;
+    } else {
+      out.textContent = 'failed: ' + (data.detail || '?');
+    }
+  } catch(e) { out.textContent = 'request failed'; }
+  finally { btn.disabled = false; }
 }
+
+// ── zoom ──
+function zoomBy(f) { if(svgRoot&&zoomBeh) svgRoot.transition().duration(240).call(zoomBeh.scaleBy,f); }
 function resetZoom() {
-  if (svgRoot && zoomBehavior) svgRoot.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+
+    if (!svgRoot || !zoomBeh) return;
+
+    const svg = svgRoot;
+    const g = svg.select("g");
+
+    const rect = svg.node().getBoundingClientRect();
+
+const W = rect.width;
+const H = rect.height;
+
+    if (!g.node()) return;
+
+const b = g.node().getBBox();
+
+if (!b.width || !b.height) return;
+
+    const scale = Math.min(
+        W / (b.width + 120),
+        H / (b.height + 120),
+        1
+    );
+
+    const tx = W/2 - (b.x + b.width/2) * scale;
+    const ty = H/2 - (b.y + b.height/2) * scale;
+
+    svg.transition()
+        .duration(500)
+        .call(
+            zoomBeh.transform,
+            d3.zoomIdentity
+                .translate(tx, ty)
+                .scale(scale)
+        );
 }
 
+// ── graph ──
 function renderGraph(nodes, edges) {
-  const container = document.getElementById('graph-container');
-  container.querySelectorAll('svg').forEach(s => s.remove());
+  const wrap = document.getElementById('graph-wrap');
+  wrap.querySelectorAll('svg').forEach(s=>s.remove());
+  const rect = wrap.getBoundingClientRect();
+  const W = rect.width || wrap.offsetWidth;
+  const H = rect.height || wrap.offsetHeight;
 
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-
-  const svg = d3.select('#graph-container').append('svg').attr('width', width).attr('height', height);
+  const svg = d3.select('#graph-wrap')
+  .append('svg')
+  .attr("width", "100%")
+  .attr("height", "100%")
+  .style('position', 'absolute')
+  .style('inset', '0')
+  .style('z-index', '2')
+  .style('cursor', 'grab');
   svgRoot = svg;
+
+  const defs = svg.append('defs');
+  // glow filter
+  const f = defs.append('filter').attr('id','glow').attr('x','-80%').attr('y','-80%').attr('width','260%').attr('height','260%');
+  f.append('feGaussianBlur').attr('stdDeviation','5').attr('result','blur');
+  const fm = f.append('feMerge');
+  fm.append('feMergeNode').attr('in','blur');
+  fm.append('feMergeNode').attr('in','SourceGraphic');
+
   const g = svg.append('g');
+  zoomBeh = d3.zoom()
+    .scaleExtent([0.05, 10])
+.on("zoom", (event) => {
+        g.attr("transform", event.transform);
+    });
 
-  zoomBehavior = d3.zoom().scaleExtent([0.3, 4]).on('zoom', (event) => g.attr('transform', event.transform));
-  svg.call(zoomBehavior);
 
-  const links = edges.map(e => ({source: e.source, target: e.target, relation: e.relation}));
+  svg.call(zoomBeh);
 
-  const colorFor = (type) => ({
-    Entity: '#8b5cf6', EntityType: '#06b6d4', TextDocument: '#4ade80',
-    DocumentChunk: '#fbbf24', TextSummary: '#38bdf8', User: '#f87171', Dataset: '#a78bfa'
-  }[type] || '#75758f');
 
-  const sizeFor = (type) => ({ Entity: 11, EntityType: 7, TextDocument: 8 }[type] || 7);
 
+svg.on("dblclick.zoom", null);
+
+svg.on("mousedown.cursor", () => svg.style("cursor", "grabbing"))
+   .on("mouseup.cursor", () => svg.style("cursor", "grab"))
+   .on("mouseleave.cursor", () => svg.style("cursor", "grab"));
+
+  const links = edges.map(e => ({source:e.source, target:e.target, relation:e.relation}));
+
+  const color = t => ({
+    Entity:'#ff6b2b', EntityType:'#00d4aa', TextDocument:'#4ade80',
+    DocumentChunk:'#fbbf24', TextSummary:'#38bdf8', User:'#ff6b8b', Dataset:'#c084fc'
+  }[t]||'#5a5570');
+
+  const size = t => ({Entity:12, EntityType:7, TextDocument:9, DocumentChunk:8}[t]||7);
+
+  if (window.currentSimulation) {
+    window.currentSimulation.stop();
+}
+  
   const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d => d.id).distance(75).strength(0.9))
-    .force('charge', d3.forceManyBody().strength(-160))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide(30))
-    .force('x', d3.forceX(width / 2).strength(0.06))
-    .force('y', d3.forceY(height / 2).strength(0.06));
+  
 
-  const link = g.append('g').selectAll('line').data(links).join('line').attr('class', 'link').style('opacity', 0)
-    .transition().duration(500).style('opacity', 1).selection();
+.force(
+'link',
+d3.forceLink(links)
+.id(d=>d.id)
+.distance(85)
+.strength(0.45)
+)
 
-  const linkLabel = g.append('g').selectAll('text').data(links).join('text').attr('class', 'link-label').text(d => d.relation);
+.force(
+'charge',
+d3.forceManyBody()
+.strength(-220)
+)
+
+.force(
+'center',
+d3.forceCenter(W/2,H/2)
+)
+
+.force(
+'collide',
+d3.forceCollide(32)
+)
+
+.force(
+'x',
+d3.forceX(W/2).strength(.03)
+)
+
+.force(
+'y',
+d3.forceY(H/2).strength(.03)
+);
+
+window.currentSimulation = sim;
+
+sim.on('end', () => {
+  setTimeout(() => {
+    const b = svg.select('g').node().getBBox();
+    if (!b.width || !b.height) return;
+    const pad = 60;
+    const scale = Math.min(W / (b.width + pad*2), H / (b.height + pad*2));
+    const tx = W/2 - (b.x + b.width/2) * scale;
+    const ty = H/2 - (b.y + b.height/2) * scale;
+    svg.call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  }, 100);
+});
+
+  const link = g.append('g').selectAll('line').data(links).join('line')
+    .attr("stroke","#2a2535")
+.attr("stroke-width",1.2)
+.attr("stroke-opacity",0.45).style('opacity',0)
+    .transition().duration(500).style('opacity',1).selection();
+
+  const linkLabel = g.append('g').selectAll('text').data(links).join('text')
+    .attr('fill','#4a4460').attr('font-size','8').attr('font-family','JetBrains Mono, monospace')
+    .attr('text-anchor','middle').attr('pointer-events','none').text(d=>d.relation);
 
   const node = g.append('g').selectAll('circle').data(nodes).join('circle')
-    .attr('r', 0).attr('fill', d => colorFor(d.type)).attr('stroke', '#07070b').attr('stroke-width', 2)
-    .style('cursor', 'pointer').style('filter', d => d.type === 'Entity' ? 'drop-shadow(0 0 6px ' + colorFor(d.type) + ')' : 'none')
-    .call(drag(sim));
-  node.transition().duration(500).delay((d, i) => i * 25).attr('r', d => sizeFor(d.type));
+    .attr('r',0).attr('fill',d=>color(d.type))
+    .attr('stroke','#040408').attr('stroke-width',2).style('cursor','pointer')
+    .style('filter',d=>d.type==='Entity'?'url(#glow)':'none')
+    .call(drag(sim))
+  node.transition().duration(550).delay((_,i)=>i*22).attr('r',d=>size(d.type));
 
   const label = g.append('g').selectAll('text').data(nodes).join('text')
-    .attr('class', d => 'node-label' + (d.type === 'Entity' ? '' : ' dim'))
-    .text(d => (d.name || '').slice(0, 20)).attr('dy', -14).style('opacity', 0)
-    .transition().duration(500).delay((d, i) => i * 25 + 200).style('opacity', 1).selection();
+    .attr('fill',d=>d.type==='Entity'?'#f0ede8':'#6a6580')
+    .attr('font-size',d=>d.type==='Entity'?'10.5':'8.5')
+    .attr('font-weight',d=>d.type==='Entity'?'600':'400')
+    .attr('font-family','Inter, sans-serif').attr('text-anchor','middle')
+    .attr('pointer-events','none').text(d=>(d.name||'').slice(0,20))
+    .attr("dy",d=>-(size(d.type)+8)).style('opacity',0)
+    .transition().duration(450).delay((_,i)=>i*22+220).style('opacity',1).selection();
 
-  const tooltip = d3.select('#tooltip');
-  node.on('mouseover', function(event, d) {
-    d3.select(this).attr('stroke', colorFor(d.type)).attr('stroke-width', 3);
-    tooltip.style('opacity', 1).html(`<b>${d.type}</b><br>${d.name}`)
-      .style('left', (event.pageX + 14) + 'px').style('top', (event.pageY - 10) + 'px');
-  }).on('mouseout', function(event, d) {
-    d3.select(this).attr('stroke', '#07070b').attr('stroke-width', 2);
-    tooltip.style('opacity', 0);
+  const tooltip = document.getElementById('tooltip');
+  const tooltipType = document.getElementById('tooltipType');
+  const tooltipName = document.getElementById('tooltipName');
+
+  node.on('mouseover', function(event,d) {
+    d3.select(this).attr('stroke',color(d.type)).attr('stroke-width',3);
+    tooltipType.textContent = d.type;
+    tooltipName.textContent = d.name || d.id;
+    tooltip.style.opacity = '1';
+    const x = Math.min(event.clientX + 14, window.innerWidth - 220);
+const y = Math.min(event.clientY - 8, window.innerHeight - 80);
+
+tooltip.style.left = x + "px";
+tooltip.style.top = y + "px";
+  }).on('mousemove', function(event) {
+    tooltip.style.left = (event.clientX+14)+'px';
+    tooltip.style.top = (event.clientY-8)+'px';
+  }).on('mouseout', function(_,d) {
+    d3.select(this).attr('stroke','#040408').attr('stroke-width',2);
+    tooltip.style.opacity = '0';
   });
 
   sim.on('tick', () => {
-    nodes.forEach(d => {
-      d.x = Math.max(20, Math.min(width - 20, d.x));
-      d.y = Math.max(20, Math.min(height - 20, d.y));
+
+    link
+      .attr('x1',d=>d.source.x)
+      .attr('y1',d=>d.source.y)
+      .attr('x2',d=>d.target.x)
+      .attr('y2',d=>d.target.y);
+
+    linkLabel
+      .attr('x',d=>(d.source.x+d.target.x)/2)
+      .attr('y',d=>(d.source.y+d.target.y)/2);
+
+    node
+      .attr('cx',d=>d.x)
+      .attr('cy',d=>d.y);
+
+    label
+      .attr('x',d=>d.x)
+      .attr('y',d=>d.y);
+
+});
+  sim.alphaDecay(0.035).alphaMin(0.001);
+
+  let fitted=false;
+  sim.on("end", () => {
+
+    if (fitted) return;
+
+    fitted = true;
+
+    const bounds = g.node().getBBox();
+
+    const width = bounds.width;
+    const height = bounds.height;
+
+    const midX = bounds.x + width / 2;
+    const midY = bounds.y + height / 2;
+
+    const scale = Math.min(
+        W / (width + 120),
+        H / (height + 120),
+        1
+    );
+
+    svg.transition()
+        .duration(600)
+        .call(
+            zoomBeh.transform,
+            d3.zoomIdentity
+                .translate(
+                    W / 2 - midX * scale,
+                    H / 2 - midY * scale
+                )
+                .scale(scale)
+        );
+});
+
+  function drag(sim) {
+  return d3.drag()
+
+    .on("start", (event, d) => {
+      d.fx = d.x;
+      d.fy = d.y;
+    })
+
+    .on("drag", (event, d) => {
+      d.fx = event.x;
+      d.fy = event.y;
+    })
+
+    .on("end", (event, d) => {
+      d.fx = null;
+      d.fy = null;
     });
-    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-    linkLabel.attr('x', d => (d.source.x + d.target.x) / 2).attr('y', d => (d.source.y + d.target.y) / 2);
-    node.attr('cx', d => d.x).attr('cy', d => d.y);
-    label.attr('x', d => d.x).attr('y', d => d.y);
-  });
-
-  setTimeout(() => { if (sim.alpha() < 0.05) sim.alpha(0.3).restart(); }, 600);
-
-  function drag(simulation) {
-    function dragstarted(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
-    function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
-    function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
-    return d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended);
-  }
 }
+}
+
+
+
+loadMemories();
 </script>
 </body>
 </html>
